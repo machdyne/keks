@@ -2,6 +2,8 @@
 
 Keks is a 32-bit FPGA-based video game console and computer designed as a fun educational platform for teaching and learning about computers, electronics, FPGAs and programming.
 
+![Keks Game Console](https://github.com/machdyne/keks/blob/0ec64c9bf5efc4cf7926da4405d466fae49035fd/keks.png)
+
 This repo contains schematics, pinouts, firmware, gateware and documentation.
 
 Additional examples will be added soon.
