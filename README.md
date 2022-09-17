@@ -30,7 +30,7 @@ It should also be possible to transfer gateware and games to the SD card over th
 
 ## Firmware
 
-Keks ships with RP2040 [firmware](firmware) based on the [https://github.com/machdyne/musli](Müsli) firmware which allows it to communicate with [ldprog](https://github.com/machdyne/ldprog).
+Keks ships with RP2040 [firmware](firmware) based on the [Müsli](https://github.com/machdyne/musli) firmware which allows it to communicate with [ldprog](https://github.com/machdyne/ldprog).
 
 The firmware is responsible for initializing the system, [configuring and outputting the system clock](https://raspberrypi.github.io/pico-sdk-doxygen/group__hardware__clocks.html#details) and configuring the FPGA.
 
