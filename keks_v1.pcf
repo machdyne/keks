@@ -1,0 +1,154 @@
+# Keks V1
+# -------
+
+set_io CLK_100		F7
+set_io CLK_RP		K9
+
+set_io LED			A5
+set_io BTN			A6
+
+# PMOD A
+set_io PMOD_A1		A11
+set_io PMOD_A2		B13
+set_io PMOD_A3		A15
+set_io PMOD_A4		A16
+set_io PMOD_A7		B12
+set_io PMOD_A8		B14
+set_io PMOD_A9		B15
+set_io PMOD_A10	C14
+
+# PMODB
+set_io PMOD_B1		M12
+set_io PMOD_B2		T16
+set_io PMOD_B3		R10
+set_io PMOD_B4		P10
+set_io PMOD_B7		R16
+set_io PMOD_B8		T15
+set_io PMOD_B9		P13
+set_io PMOD_B10	T11
+
+# USB-UART on PMODB
+set_io UART0_RTS  M12
+set_io UART0_RX   T16
+set_io UART0_TX   R10
+set_io UART0_CTS  P10
+
+# RP2040
+set_io RP_TX		L6
+set_io RP_RX		L7
+set_io RP_INT		D9
+
+# SRAM
+set_io SRAM_A0		C5
+set_io SRAM_A1		C6
+set_io SRAM_A2		C7
+set_io SRAM_A3		B6
+set_io SRAM_A4		B5
+set_io SRAM_A5		B4
+set_io SRAM_A6		B3
+set_io SRAM_A7		A1
+set_io SRAM_A8		C10
+set_io SRAM_A9		C11
+set_io SRAM_A10	A10
+set_io SRAM_A11	B11
+set_io SRAM_A12	B9
+set_io SRAM_A13	A9
+set_io SRAM_A14	B10
+set_io SRAM_A15	C9
+set_io SRAM_A16	A7
+set_io SRAM_A17	A2
+
+set_io SRAM0_D0	J5
+set_io SRAM0_D1	H5
+set_io SRAM0_D2	H6
+set_io SRAM0_D3	G5
+set_io SRAM0_D4	G4
+set_io SRAM0_D5	F1
+set_io SRAM0_D6	E2
+set_io SRAM0_D7	F2
+set_io SRAM0_D8	F5
+set_io SRAM0_D9	D1
+set_io SRAM0_D10	E3
+set_io SRAM0_D11	D2
+set_io SRAM0_D12	C1
+set_io SRAM0_D13	B1
+set_io SRAM0_D14	C2
+set_io SRAM0_D15	B2
+
+set_io SRAM0_CE	G3
+set_io SRAM0_OE	F3
+set_io SRAM0_WE	G2
+set_io SRAM0_UB	E4
+set_io SRAM0_LB	F4
+
+set_io SRAM1_D0	R1
+set_io SRAM1_D1	M3
+set_io SRAM1_D2	M4
+set_io SRAM1_D3	N4
+set_io SRAM1_D4	K4
+set_io SRAM1_D5	K5
+set_io SRAM1_D6	L5
+set_io SRAM1_D7	M5
+set_io SRAM1_D8	M1
+set_io SRAM1_D9	L1
+set_io SRAM1_D10	M2
+set_io SRAM1_D11	K1
+set_io SRAM1_D12	K3
+set_io SRAM1_D13	J2
+set_io SRAM1_D14	J1
+set_io SRAM1_D15	H1
+
+set_io SRAM1_CE	P2
+set_io SRAM1_OE	P1
+set_io SRAM1_WE	M6
+set_io SRAM1_UB	N3
+set_io SRAM1_LB	N2
+
+# OPI PSRAM
+set_io HRAM_ADQ0	L16
+set_io HRAM_ADQ1	K16
+set_io HRAM_ADQ2	K14
+set_io HRAM_ADQ3	M15
+set_io HRAM_ADQ4	P16
+set_io HRAM_ADQ5	N16
+set_io HRAM_ADQ6	M16
+set_io HRAM_ADQ7	K15
+set_io HRAM_DQ8	J14
+set_io HRAM_DQ9	J16
+set_io HRAM_DQ10	E14
+set_io HRAM_DQ11	D16
+set_io HRAM_DQ12	D15
+set_io HRAM_DQ13	F14
+set_io HRAM_DQ14	F15
+set_io HRAM_DQ15	L14
+set_io HRAM_CE		E16
+set_io HRAM_CK		J15
+set_io HRAM_DQS0	K13
+set_io HRAM_DQS1	H14
+
+# DDMI
+set_io DDMI_D0_N	T7
+set_io DDMI_D1_N	T9
+set_io DDMI_D2_N	T13
+set_io DDMI_CK_N	T5
+set_io DDMI_D0_P	T8
+set_io DDMI_D1_P	T10
+set_io DDMI_D2_P	T14
+set_io DDMI_CK_P	T6
+
+# COMPOSITE VIDEO
+set_io COMP_D0		T1
+set_io COMP_D1		R2
+set_io COMP_D2		T2
+set_io COMP_D3		R3
+
+# AUDIO
+set_io AUDIO_L		T3
+set_io AUDIO_R		R4
+
+# CONFIG SPI
+set_io CSPI_SS		R12
+set_io CSPI_SCK	R11
+set_io CSPI_SI		P11	# MISO
+set_io CSPI_SO		P12	# MOSI
+set_io CDONE		M10
