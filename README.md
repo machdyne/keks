@@ -26,7 +26,7 @@ Configure the FPGA SRAM:
 $ ldprog -k -s blinky.bin
 ```
 
-It should also be possible to transfer gateware and games to the SD card over the USB-C port but this is not yet implemented.
+It should also be possible to transfer gateware and games to the MicroSD card over the USB-C port but this is not yet implemented.
 
 ## Firmware
 
