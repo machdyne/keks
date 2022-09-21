@@ -32,13 +32,13 @@ It should also be possible to transfer gateware and games to the MicroSD card ov
 
 Keks ships with RP2040 [firmware](firmware) based on the [Müsli](https://github.com/machdyne/musli) firmware which allows it to communicate with [ldprog](https://github.com/machdyne/ldprog).
 
-The firmware is responsible for initializing the system, [configuring and outputting the system clock](https://raspberrypi.github.io/pico-sdk-doxygen/group__hardware__clocks.html#details), configuring the FPGA and detecting USB HID events.
+The firmware is responsible for initializing the system, [configuring and outputting the RP clock](https://raspberrypi.github.io/pico-sdk-doxygen/group__hardware__clocks.html#details), configuring the FPGA and detecting USB HID events.
 
-The system clock (CLK\_RP) is 126MHz by default.
+The RP clock (CLK\_RP) is 126MHz by default. Keks also has a 100 MHz oscillator on board (CLK\_100).
 
 After FPGA configuration is complete the RP2040 firmware configures the RP2040 to act as an SPI slave on the CSPI bus, allowing the FPGA to access the RP2040 SRAM, flash, USB HID controller registers as well as issue commands. 
 
-In addition to the 4 CSPI signals there are 6 other signals connected to both the RP2040 and the FPGA: RP\_TX, RP\_RX, and RP\_INT, CDONE, CRESET and BTN.
+In addition to the 4 CSPI signals and CLK\_RP there are 6 other signals connected to both the RP2040 and the FPGA: RP\_TX, RP\_RX, and RP\_INT, CDONE, CRESET and BTN.
 
 The firmware can be updated by holding down the BOOTSEL button, connecting the USB-C port to your computer, and then dragging and dropping a new UF2 file to the device filesystem.
 
