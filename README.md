@@ -40,7 +40,7 @@ The RP clock (CLK\_RP) is 126MHz by default. Keks also has a 100 MHz oscillator 
 
 *After FPGA configuration is complete the RP2040 firmware configures the RP2040 to act as an SPI slave on the CSPI bus, allowing the FPGA to access the RP2040 SRAM, flash, USB HID controller registers as well as issue commands.*
 
-*The RP2040 firmware also acts as an SPI master and sends update to the FPGA when the status of the gamepads/joysticks change.*
+*The RP2040 firmware also acts as an SPI master and sends updates to the FPGA when the status of the gamepads/joysticks change.*
 
 In addition to the 4 CSPI signals and CLK\_RP there are 6 other signals connected to both the RP2040 and the FPGA: RP\_TX, RP\_RX, and RP\_INT, CDONE, CRESET and BTN.
 
