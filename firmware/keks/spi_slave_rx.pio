@@ -1,0 +1,48 @@
+;
+; Copyright (c) 2021 Raspberry Pi (Trading) Ltd.
+; Copyright (c) 2022 Lone Dynamics Corporation <info@lonedynamics.com>
+;
+; SPDX-License-Identifier: BSD-3-Clause
+;
+
+.program spi_slave_rx
+
+; Sample bits using an external clock, and push groups of bits into the RX FIFO.
+; - IN pin 0 is the SPI RX pin
+; - Autopush is enabled, threshold 8
+;
+; This program samples data with each rising clock edge (like mode 0 or mode 3
+; SPI). The data is actually sampled one system clock cycle after the rising
+; edge is observed, so a clock ratio of at least input_clk < clk_sys / 6 is
+; recommended for good sampling alignment.
+
+    wait 0 gpio 26	; wait for low on clk pin
+    wait 1 gpio 26 	; wait for high on clk pin
+    in pins, 1			; input data
+
+% c-sdk {
+static inline void spi_slave_rx_program_init(PIO pio, uint sm, uint offset, uint pin_clk, uint pin_rx) {
+
+    pio_sm_config c = spi_slave_rx_program_get_default_config(offset);
+
+    sm_config_set_in_pins(&c, pin_rx);
+
+    // Connect these GPIOs to this PIO block
+    //pio_gpio_init(pio, pin_rx);
+
+    // Shifting to left matches the customary MSB-first ordering of SPI.
+    sm_config_set_in_shift(
+        &c,
+        false, // Shift-to-right = false (i.e. shift to left)
+        true,  // Autopush enabled
+        8      // Autopush threshold = 8
+    );
+
+    // We only receive, so disable the TX FIFO to make the RX FIFO deeper.
+    sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_RX);
+
+    // Load our configuration, and start the program from the beginning
+    pio_sm_init(pio, sm, offset, &c);
+    pio_sm_set_enabled(pio, sm, true);
+}
+%}

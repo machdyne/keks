@@ -1,0 +1,40 @@
+;
+; Copyright (c) 2021 Raspberry Pi (Trading) Ltd.
+; Copyright (c) 2022 Lone Dynamics Corporation <info@lonedynamics.com>
+;
+; SPDX-License-Identifier: BSD-3-Clause
+;
+
+.program spi_slave_tx
+
+    wait 0 gpio 26	; wait for low on clk pin
+    wait 1 gpio 26	; wait for high on clk pin
+    out pins, 1		; output data
+
+% c-sdk {
+static inline void spi_slave_tx_program_init(PIO pio, uint sm, uint offset, uint pin_clk, uint pin_tx) {
+
+    pio_sm_config c = spi_slave_tx_program_get_default_config(offset);
+
+    sm_config_set_out_pins(&c, pin_tx, 1);
+
+    pio_gpio_init(pio, pin_tx);
+
+    pio_sm_set_consecutive_pindirs(pio, sm, pin_tx, 1, true);
+
+    // Shifting to left matches the customary MSB-first ordering of SPI.
+    sm_config_set_out_shift(
+        &c,
+        false, // Shift-to-right = false (i.e. shift to left)
+        true,  // Autopull enabled
+        8      // Autopull threshold = 8
+    );
+
+    // We only transmit, so disable the RX FIFO to make the TX FIFO deeper.
+    sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);
+
+    // Load our configuration, and start the program from the beginning
+    pio_sm_init(pio, sm, offset, &c);
+    pio_sm_set_enabled(pio, sm, true);
+}
+%}

@@ -7,10 +7,10 @@
 #ifndef KEKS_H_
 #define KEKS_H_
 
-#define MUSLI_SPI_RX_PIN   24
+#define MUSLI_SPI_RX_PIN   24		// CSPI_SO
 #define MUSLI_SPI_CSN_PIN  25
 #define MUSLI_SPI_SCK_PIN  26
-#define MUSLI_SPI_TX_PIN   27
+#define MUSLI_SPI_TX_PIN   27		// CSPI_SI
 
 #define MUSLI_CMD_READY 0x00
 #define MUSLI_CMD_INIT 0x01
@@ -33,14 +33,15 @@
 
 #define KEKS_CLKOUT 21
 
-#define KEKS_TX 16
-#define KEKS_RX 17
+#define KEKS_TX 16			// rpint spi master mosi
+#define KEKS_RX 17			// spi slave hold
+#define KEKS_HOLD KEKS_RX
 
 #define KEKS_LED_R 20
 #define KEKS_LED_G 19
 #define KEKS_LED_B 18
 #define KEKS_BTN 28
-#define KEKS_INT 29
+#define KEKS_INT 29			// rpint master clk
 
 #define KEKS_SD_SCK	6
 #define KEKS_SD_MISO	4

@@ -14,6 +14,9 @@ set(PICO_PIO_USB_SRC "${CMAKE_CURRENT_LIST_DIR}/pico-pio-usb")
 
 pico_generate_pio_header(keks ${PICO_PIO_USB_SRC}/usb_tx.pio)
 pico_generate_pio_header(keks ${PICO_PIO_USB_SRC}/usb_rx.pio)
+pico_generate_pio_header(keks ${CMAKE_CURRENT_LIST_DIR}/spi_slave_tx.pio)
+pico_generate_pio_header(keks ${CMAKE_CURRENT_LIST_DIR}/spi_slave_rx.pio)
+pico_generate_pio_header(keks ${CMAKE_CURRENT_LIST_DIR}/spi_master_tx.pio)
 
 target_compile_definitions(keks PUBLIC
 	PICO_DEFAULT_UART_INSTANCE=uart0

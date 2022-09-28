@@ -12,21 +12,25 @@
 #include <strings.h>
 #include <string.h>
 
-// Pico
 #include "pico/stdlib.h"
 #include "pico/stdio.h"
 #include "hardware/uart.h"
 #include "hardware/spi.h"
+#include "hardware/pio.h"
 #include "hardware/watchdog.h"
-#include "pico/stdlib.h"
-#include "pico/binary_info.h"
-#include "pico/multicore.h"
-
 #include "hardware/pll.h"
 #include "hardware/clocks.h"
 #include "hardware/structs/pll.h"
 #include "hardware/structs/clocks.h"
+#include "pico/stdlib.h"
+#include "pico/binary_info.h"
+#include "pico/multicore.h"
+#include "pico/bootrom.h"
 
+#include "pio_usb.h"
+#include "spi_slave_tx.pio.h"
+#include "spi_slave_rx.pio.h"
+#include "spi_master_tx.pio.h"
 #include "keks.h"
 #include "fs.h"
 
@@ -44,14 +48,28 @@
 // Device descriptors
 #include "keks_usb.h"
 
+// spi_master and spi_slave PIO is shared with pico-pio-usb
+#define SPI_SLAVE_RX_PIO pio0
+#define SPI_SLAVE_RX_SM 1
+#define SPI_SLAVE_TX_PIO pio0
+#define SPI_SLAVE_TX_SM 2
+#define SPI_MASTER_TX_PIO pio0
+#define SPI_MASTER_TX_SM 3
+
+void pio_spi_slave_write8_blocking(PIO pio, uint sm, const uint8_t *src, size_t len);
+void pio_spi_master_write8_blocking(PIO pio, uint sm, const uint8_t *src, size_t len);
+
 void init_ldprog(void);
 void init_keks(void);
 void init_keks_postconf(void);
+int rptcmp(char *a, char *b, int len);
 void set_rgb_led(int r, int g, int b);
 void gpio_int(uint gpio, uint32_t events);
 void core1_main();
 
 bool keks_fpga_configured = false;
+
+static usb_device_t *usb_host_device = NULL;
 
 #define usb_hw_set hw_set_alias(usb_hw)
 #define usb_hw_clear hw_clear_alias(usb_hw)
@@ -573,34 +591,23 @@ void ep0_out_handler(uint8_t *buf, uint16_t len) {
 // Device specific functions
 void ep1_out_handler(uint8_t *buf, uint16_t len) {
 
-	//	printf("RX %d bytes from host\n", len);
-	//	printf("[%x %x %x %x]\n", buf[0], buf[1], buf[2], buf[3]);
-
 	if (buf[0] == MUSLI_CMD_INIT) {
-//		printf("init %d\n", buf[1]);
 		if (buf[1] == 0x00) init_ldprog();
-//		if (buf[1] == 0x01) init_gpio();
-//		if (buf[1] == 0x02) init_pio_spi();
-//		if (buf[1] == 0x03) init_keks_postconf();
 	}
 
 	if (buf[0] == MUSLI_CMD_GPIO_SET_DIR) {
-//		printf("gpio pin %d direction set to: %d\n", buf[1], buf[2]);
 		gpio_set_dir(buf[1], buf[2]);
 	}
 
 	if (buf[0] == MUSLI_CMD_GPIO_DISABLE_PULLS) {
-//		printf("disabling pulls for gpio pin %d\n", buf[1]);
 		gpio_disable_pulls(buf[1]);
 	}
 
 	if (buf[0] == MUSLI_CMD_GPIO_PULL_UP) {
-//		printf("enabling pull-up for gpio pin %d\n", buf[1]);
 		gpio_pull_up(buf[1]);
 	}
 
 	if (buf[0] == MUSLI_CMD_GPIO_PULL_DOWN) {
-//		printf("enabling pull-down for gpio pin %d\n", buf[1]);
 		gpio_pull_down(buf[1]);
 	}
 
@@ -610,7 +617,6 @@ void ep1_out_handler(uint8_t *buf, uint16_t len) {
 		uint8_t val = gpio_get(buf[1]);
 		int pd = gpio_is_pulled_down(buf[1]);
 		int pu = gpio_is_pulled_up(buf[1]);
-		printf("reading gpio %d (%d) [pd: %d pu: %d] ...\n", buf[1], val, pd, pu);
 		lbuf[0] = val;
 		struct usb_endpoint_configuration *ep =
 			usb_get_endpoint_configuration(EP2_IN_ADDR);
@@ -620,15 +626,12 @@ void ep1_out_handler(uint8_t *buf, uint16_t len) {
 	if (buf[0] == MUSLI_CMD_GPIO_PUT) {
 		int pd = gpio_is_pulled_down(buf[1]);
 		int pu = gpio_is_pulled_up(buf[1]);
-		printf("writing %d to gpio %d [pd: %d pu: %d] ...\n", buf[2], buf[1],
-			pd, pu);
 		gpio_put(buf[1], buf[2]);
 	}
 
 	if (buf[0] == MUSLI_CMD_SPI_READ) {
 		uint8_t lbuf[64];
 		bzero(lbuf, 64);
-	//	printf("reading %d bytes from spi [mode: %d] ...\n", buf[1], spi_mode);
 		spi_read_blocking(spi1, 0, lbuf, buf[1]);
 		struct usb_endpoint_configuration *ep =
 			usb_get_endpoint_configuration(EP2_IN_ADDR);
@@ -636,7 +639,6 @@ void ep1_out_handler(uint8_t *buf, uint16_t len) {
 	}
 
 	if (buf[0] == MUSLI_CMD_SPI_WRITE) {
-	//	printf("writing %d bytes to spi [mode: %d] ...\n", buf[1], spi_mode);
 		spi_write_blocking(spi1, buf+4, buf[1]);
 	}
 
@@ -674,9 +676,9 @@ void init_keks(void) {
 	gpio_init(ICE40_CDONE);
 	gpio_disable_pulls(ICE40_CDONE);
 
-	gpio_init(KEKS_BTN);
-	gpio_disable_pulls(KEKS_BTN);
-	gpio_pull_up(KEKS_BTN);
+//	gpio_init(KEKS_BTN);
+//	gpio_disable_pulls(KEKS_BTN);
+//	gpio_pull_up(KEKS_BTN);
 
 	gpio_init(KEKS_INT);
 	gpio_disable_pulls(KEKS_INT);
@@ -697,10 +699,6 @@ void init_keks(void) {
 
 	set_rgb_led(0, 0, 1);
 
-//	gpio_set_irq_enabled_with_callback(KEKS_BTN, GPIO_IRQ_EDGE_FALL, true, &gpio_int);
-//	gpio_set_irq_enabled_with_callback(ICE40_CDONE, GPIO_IRQ_LEVEL_HIGH, true, &gpio_int);
-//	gpio_set_irq_enabled_with_callback(MUSLI_SPI_CSN_PIN, GPIO_IRQ_EDGE_FALL, true, &gpio_int);
-
 }
 
 void set_rgb_led(int r, int g, int b) {
@@ -712,45 +710,76 @@ void set_rgb_led(int r, int g, int b) {
 // this happens after fpga configuration completes (CDONE goes high)
 void init_keks_postconf(void) {
 
+	keks_fpga_configured = true;
 	set_rgb_led(0, 1, 0);
 
-/*
-	// set up RPMEM interface
-   gpio_init(MUSLI_SPI_CSN_PIN);
-   gpio_disable_pulls(MUSLI_SPI_CSN_PIN);
+	sleep_us(500);
 
-   gpio_set_function(MUSLI_SPI_RX_PIN, GPIO_FUNC_SPI);
-   gpio_set_function(MUSLI_SPI_SCK_PIN, GPIO_FUNC_SPI);
-   gpio_set_function(MUSLI_SPI_TX_PIN, GPIO_FUNC_SPI);
-   spi_init(spi1, 1000 * 1000);
+
+	// set up RPMEM slave interface
+	printf("configuring RPMEM interface ...\n");
+//   gpio_init(MUSLI_SPI_CSN_PIN);
+//   gpio_disable_pulls(MUSLI_SPI_CSN_PIN);
+
+/*
+	gpio_set_function(MUSLI_SPI_CSN_PIN, GPIO_FUNC_SPI);
+	gpio_set_function(MUSLI_SPI_RX_PIN, GPIO_FUNC_SPI);
+	gpio_set_function(MUSLI_SPI_SCK_PIN, GPIO_FUNC_SPI);
+	gpio_set_function(MUSLI_SPI_TX_PIN, GPIO_FUNC_SPI);
+	spi_init(spi1, 1000 * 1000);
 	spi_set_slave(spi1, true);
 */
+
+	gpio_init(MUSLI_SPI_TX_PIN);
+	gpio_init(MUSLI_SPI_RX_PIN);
+	gpio_init(MUSLI_SPI_SCK_PIN);
+	gpio_disable_pulls(MUSLI_SPI_TX_PIN);
+	gpio_disable_pulls(MUSLI_SPI_RX_PIN);
+	gpio_disable_pulls(MUSLI_SPI_SCK_PIN);
+	gpio_set_function(MUSLI_SPI_RX_PIN, GPIO_FUNC_PIO0);
+	gpio_set_function(MUSLI_SPI_SCK_PIN, GPIO_FUNC_PIO0);
+	gpio_set_function(MUSLI_SPI_TX_PIN, GPIO_FUNC_PIO0);
+	gpio_set_dir(MUSLI_SPI_TX_PIN, 1);
+	gpio_set_dir(MUSLI_SPI_RX_PIN, 0);
+	gpio_set_dir(MUSLI_SPI_SCK_PIN, 0);
+
+	gpio_init(KEKS_INT);
+	gpio_disable_pulls(KEKS_INT);
+	gpio_set_dir(KEKS_INT, 1);
+	gpio_set_function(KEKS_INT, GPIO_FUNC_PIO0);
+
+	gpio_init(KEKS_TX);
+	gpio_disable_pulls(KEKS_TX);
+	gpio_set_dir(KEKS_TX, 1);
+	gpio_set_function(KEKS_TX, GPIO_FUNC_PIO0);
+
+	gpio_init(KEKS_HOLD);
+	gpio_disable_pulls(KEKS_HOLD);
+	gpio_set_dir(KEKS_HOLD, 1);
+	gpio_set_function(MUSLI_SPI_TX_PIN, GPIO_FUNC_PIO0);
 
 	printf("fpga configured, please wait ...\n");
 	sleep_ms(500);
 
-	printf("clocks: ");
-    uint f_pll_sys = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_PLL_SYS_CLKSRC_PRIMARY);
-    uint f_pll_usb = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_PLL_USB_CLKSRC_PRIMARY);
-    uint f_rosc = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_ROSC_CLKSRC);
-    uint f_clk_sys = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_CLK_SYS);
-    uint f_clk_peri = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_CLK_PERI);
-    uint f_clk_usb = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_CLK_USB);
-    uint f_clk_adc = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_CLK_ADC);
-    uint f_clk_rtc = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_CLK_RTC);
+	printf("clocks:\n");
+
+	uint f_pll_sys = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_PLL_SYS_CLKSRC_PRIMARY);
+	uint f_pll_usb = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_PLL_USB_CLKSRC_PRIMARY);
+	uint f_rosc = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_ROSC_CLKSRC);
+	uint f_clk_sys = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_CLK_SYS);
+	uint f_clk_peri = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_CLK_PERI);
+	uint f_clk_usb = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_CLK_USB);
+	uint f_clk_adc = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_CLK_ADC);
+	uint f_clk_rtc = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_CLK_RTC);
  
-    printf("pll_sys  = %dkHz\n", f_pll_sys);
-    printf("pll_usb  = %dkHz\n", f_pll_usb);
-    printf("rosc     = %dkHz\n", f_rosc);
-    printf("clk_sys  = %dkHz\n", f_clk_sys);
-    printf("clk_peri = %dkHz\n", f_clk_peri);
-    printf("clk_usb  = %dkHz\n", f_clk_usb);
-    printf("clk_adc  = %dkHz\n", f_clk_adc);
-    printf("clk_rtc  = %dkHz\n", f_clk_rtc);
-
-
-	//printf("re-enable clock output ...\n");
-	//clock_gpio_init(KEKS_CLKOUT, CLOCKS_CLK_GPOUT0_CTRL_AUXSRC_VALUE_CLK_SYS, 1);
+	printf("pll_sys  = %dkHz\n", f_pll_sys);
+	printf("pll_usb  = %dkHz\n", f_pll_usb);
+	printf("rosc     = %dkHz\n", f_rosc);
+	printf("clk_sys  = %dkHz\n", f_clk_sys);
+	printf("clk_peri = %dkHz\n", f_clk_peri);
+	printf("clk_usb  = %dkHz\n", f_clk_usb);
+	printf("clk_adc  = %dkHz\n", f_clk_adc);
+	printf("clk_rtc  = %dkHz\n", f_clk_rtc);
 
 	printf("mounting sd card ... ");
 	fflush(stdout);
@@ -766,6 +795,13 @@ void init_keks_postconf(void) {
 	printf("listing sd card ...\n");
 	fs_list_dir("/");
 
+	// enable interrupts
+//	gpio_set_irq_enabled_with_callback(KEKS_BTN, GPIO_IRQ_EDGE_FALL, true, &gpio_int);
+	gpio_set_irq_enabled_with_callback(MUSLI_SPI_CSN_PIN, GPIO_IRQ_EDGE_FALL, true, &gpio_int);
+	gpio_set_irq_enabled_with_callback(MUSLI_SPI_SCK_PIN, GPIO_IRQ_EDGE_RISE, true, &gpio_int);
+
+	printf("keks is ready.\n");
+
 }
 
 void ice40_reset(void) {
@@ -779,8 +815,8 @@ void ice40_reset(void) {
 	sleep_ms(100);
 
 	// release CRESET
-	gpio_disable_pulls(ICE40_CRESET);
 	gpio_init(ICE40_CRESET);
+	gpio_disable_pulls(ICE40_CRESET);
 
 	// ICE40 should now load from flash and raise CDONE ...
 
@@ -791,7 +827,6 @@ void init_ldprog(void) {
 	set_rgb_led(1, 0, 0);
 
 	printf("init_ldprog\n");
-
 
 	gpio_init(MUSLI_SPI_CSN_PIN);
 	gpio_disable_pulls(MUSLI_SPI_CSN_PIN);
@@ -806,6 +841,7 @@ void init_ldprog(void) {
 	gpio_set_function(MUSLI_SPI_SCK_PIN, GPIO_FUNC_SPI);
 	gpio_set_function(MUSLI_SPI_TX_PIN, GPIO_FUNC_SPI);
 	spi_init(spi1, 1000 * 1000);
+	spi_set_slave(spi1, false);
 
 	keks_fpga_configured = false;
 
@@ -816,59 +852,59 @@ void init_ldprog(void) {
 
 }
 
+char rpmem_in[8];
+char rpmem_out[8];
+int rpmem_ctr;
+
+uint8_t rpt_l[8];
+uint8_t rpt_r[8];
+
+int rptcmp(char *a, char *b, int len) {
+	int d = 0;
+	for (int i = 0; i < len; i++) if (a[i] != b[i]) ++d;
+	return d;
+}
+
 int main(void) {
 
 	// set the sys clock to 126mhz
 	set_sys_clock_khz(126000, true);
 
+	// use the button signal for debug uart tx
 	gpio_set_function(KEKS_BTN, GPIO_FUNC_UART);
-	gpio_set_function(KEKS_RX, GPIO_FUNC_UART);
-	gpio_set_function(KEKS_TX, GPIO_FUNC_UART);
 
 	stdio_init_all();
-//	stdio_uart_init_full(uart1, 115200, KEKS_TX, KEKS_RX);
 
 	printf("Keks initializing ...\n");
 
 	printf("enable clock output ...\n");
 	clock_gpio_init(KEKS_CLKOUT, CLOCKS_CLK_GPOUT0_CTRL_AUXSRC_VALUE_CLK_SYS, 1);
 
-//	multicore_reset_core1();
-//	multicore_launch_core1(core1_main);
-
 	printf("usb_device_init ...\n");
 	usb_device_init();
 
+	printf("starting second core ...\n");
+	multicore_reset_core1();
+	multicore_launch_core1(core1_main);
+
 	init_keks();
-	ice40_reset();
+//	ice40_reset();
 
-
-//	printf("waiting for usb configuration ...\n");
 	// Wait until configured
 	while (!configured) {
 		tight_loop_contents();
 	}
 
-//	printf("waiting for data from host ...\n");
 	// Get ready to rx from host
 	usb_start_transfer(usb_get_endpoint_configuration(EP1_OUT_ADDR), NULL, 64);
 
-//	uart_init(uart0, 115200);
-//	uart_init(uart1, 115200);
-//
-
-//
-//	uart_puts(uart1, "uart ready\n");
-
 	bool kfc_prev;
+	rpmem_ctr = 0;
 
 	// Everything is interrupt driven so just loop here
 	while (1) {
 
 		tight_loop_contents();
-
-		printf("hello\n");
-//		uart_puts(uart1, "hello1\n");
 
 		int cdone = gpio_get(ICE40_CDONE);
 		if (cdone && cdone != kfc_prev) {
@@ -877,7 +913,120 @@ int main(void) {
 
 		kfc_prev = cdone;
 
-		sleep_ms(500);
+		if (usb_host_device != NULL) {
+
+			for (int dev_idx = 0; dev_idx < PIO_USB_DEVICE_CNT; dev_idx++) {
+				usb_device_t *device = &usb_host_device[dev_idx];
+
+				if (!device->connected) {
+					continue;
+				}
+
+				// Print received packet to EPs
+				for (int ep_idx = 0; ep_idx < PIO_USB_DEV_EP_CNT; ep_idx++) {
+
+					endpoint_t *ep = pio_usb_get_endpoint(device, ep_idx);
+
+					if (ep == NULL) {
+						break;
+					}
+
+					uint8_t rpt[64];
+					int len = pio_usb_get_in_data(ep, rpt, sizeof(rpt));
+
+					if (len > 0) {
+
+						rpt[2] = rpt[5];
+						rpt[3] = rpt[6];
+						rpt[4] = dev_idx;
+
+						// send the report if it's changed
+						if (dev_idx == 0 && rptcmp(rpt, rpt_l, 5)) {
+
+					//		printf("%02x %02x %02x %02x %02x\n",
+					//			rpt[0], rpt[1], rpt[2], rpt[3], rpt[4]);
+
+							pio_spi_master_write8_blocking(SPI_MASTER_TX_PIO,
+								SPI_MASTER_TX_SM, rpt, 5);
+
+						}
+
+						if (dev_idx == 1 && rptcmp(rpt, rpt_r, 5)) {
+
+					//		printf("%02x %02x %02x %02x %02x\n",
+					//			rpt[0], rpt[1], rpt[2], rpt[3], rpt[4]);
+
+							pio_spi_master_write8_blocking(SPI_MASTER_TX_PIO,
+								SPI_MASTER_TX_SM, rpt, 5);
+
+						}
+
+						if (dev_idx == 0) memcpy(rpt_l, rpt, 5);
+						if (dev_idx == 1) memcpy(rpt_r, rpt, 5);
+
+					}
+				}
+			}
+		}
+
+		if (keks_fpga_configured) {
+
+			if (!pio_sm_is_rx_fifo_empty(SPI_SLAVE_RX_PIO, SPI_SLAVE_RX_SM)) {
+
+				if (rpmem_ctr > 7) {
+					printf("rpmem overflow!\n");
+					rpmem_ctr = 0;
+				}
+
+				rpmem_in[rpmem_ctr] = pio_sm_get_blocking(SPI_SLAVE_RX_PIO,
+					SPI_SLAVE_RX_SM);
+
+				if (rpmem_ctr == 3) {
+
+					printf("got rpmem cmd %.2x adr: %.2x %.2x %.2x\n",
+						rpmem_in[0], rpmem_in[1], rpmem_in[2], rpmem_in[3] );
+
+					if (rpmem_in[0] == 0x03) {	// READ
+
+						printf("reading from %x %x %x\n",
+							rpmem_in[1], rpmem_in[2], rpmem_in[3]);
+
+						rpmem_out[0] = 0x55;
+						rpmem_out[1] = 0x66;
+						rpmem_out[2] = 0x77;
+						rpmem_out[3] = 0x88;
+
+						pio_spi_slave_write8_blocking(SPI_SLAVE_TX_PIO,
+							SPI_SLAVE_TX_SM, rpmem_out, 4);
+
+					}
+
+					gpio_put(KEKS_HOLD, 0);	// disable read hold
+
+				}
+
+				if (rpmem_ctr == 7) {
+
+					if (rpmem_in[0] == 0x02) {	// WRITE
+
+						printf("writing: %x %x %x %x to %x %x %x\n",
+							rpmem_in[4], rpmem_in[5], rpmem_in[6], rpmem_in[7],
+							rpmem_in[1], rpmem_in[2], rpmem_in[3]);
+
+					}
+
+					rpmem_ctr = 0;
+
+				} else {
+
+					++rpmem_ctr;
+
+				}
+
+			}
+
+		}
+
 	}
 
 	return 0;
@@ -889,36 +1038,81 @@ int main(void) {
 
 void gpio_int(uint gpio, uint32_t events) {
 
-	if ((events & GPIO_IRQ_LEVEL_HIGH) == GPIO_IRQ_LEVEL_HIGH) {
-
-		if (gpio == ICE40_CDONE) {
-//			keks_fpga_configured = true;
-		}
-
-	}
-
-/*
 	if ((events & GPIO_IRQ_EDGE_FALL) == GPIO_IRQ_EDGE_FALL) {
 
-		if (gpio == KEKS_BTN) {
-//			uart_puts(uart1, "button!\n");
-			set_rgb_led(1, 1, 1);
-		}
+//		printf("gpio_int: %i\n", gpio);
+
+//		if (gpio == KEKS_BTN) {
+//			printf("button pressed!\n");
+//		}
 
 		if (gpio == MUSLI_SPI_CSN_PIN) {
-			printf("gpio_fall: cspi_ss\n");
+//			printf("gpio_fall: cspi_ss\n");
+			rpmem_ctr = 0;
+			gpio_put(KEKS_HOLD, 1);	// enable read hold
+ 			pio_sm_restart(SPI_SLAVE_RX_PIO, SPI_SLAVE_RX_SM);
+ 			pio_sm_restart(SPI_SLAVE_TX_PIO, SPI_SLAVE_TX_SM);
 		}
 
 	}
-*/
 }
+
+// use the second core for the USB host controller
 
 void core1_main() {
 
    sleep_ms(10);
 
+   // To run USB SOF interrupt in core1, create alarm pool in core1.
+   static pio_usb_configuration_t config = PIO_USB_DEFAULT_CONFIG;
+   config.alarm_pool = (void*)alarm_pool_create(2, 1);
+   usb_host_device = pio_usb_host_init(&config);
+
+   // Call pio_usb_host_add_port to use multi port
+   const uint8_t pin_dp2 = 13;
+   pio_usb_host_add_port(pin_dp2);
+
+	// set up SPI slave PIO state machines
+	uint offset_rx = pio_add_program(SPI_SLAVE_RX_PIO, &spi_slave_rx_program);
+	spi_slave_rx_program_init(SPI_SLAVE_RX_PIO, SPI_SLAVE_RX_SM, offset_rx,
+		MUSLI_SPI_SCK_PIN, MUSLI_SPI_RX_PIN);
+
+	uint offset_tx = pio_add_program(SPI_SLAVE_TX_PIO, &spi_slave_tx_program);
+	spi_slave_tx_program_init(SPI_SLAVE_TX_PIO, SPI_SLAVE_TX_SM, offset_tx,
+		MUSLI_SPI_SCK_PIN, MUSLI_SPI_TX_PIN);
+
+	uint offset_mtx = pio_add_program(SPI_MASTER_TX_PIO, &spi_master_tx_program);
+	spi_master_tx_program_init(SPI_MASTER_TX_PIO, SPI_MASTER_TX_SM, offset_mtx,
+		KEKS_INT, KEKS_TX);
+
    while (true) {
+      pio_usb_host_task();
    }
 
 }
 
+void __time_critical_func(pio_spi_slave_write8_blocking)(PIO pio, uint sm, const uint8_t *src, size_t len) {
+    size_t tx_remain = len;
+    // Do 8 bit accesses on FIFO, so that write data is byte-replicated. This
+    // gets us the left-justification for free (for MSB-first shift-out)
+    io_rw_8 *txfifo = (io_rw_8 *) &pio->txf[sm];
+    while (tx_remain) {
+        if (tx_remain && !pio_sm_is_tx_fifo_full(pio, sm)) {
+            *txfifo = *src++;
+            --tx_remain;
+        }
+    }
+}
+
+void __time_critical_func(pio_spi_master_write8_blocking)(PIO pio, uint sm, const uint8_t *src, size_t len) {
+    size_t tx_remain = len;
+    // Do 8 bit accesses on FIFO, so that write data is byte-replicated. This
+    // gets us the left-justification for free (for MSB-first shift-out)
+    io_rw_8 *txfifo = (io_rw_8 *) &pio->txf[sm];
+    while (tx_remain) {
+        if (tx_remain && !pio_sm_is_tx_fifo_full(pio, sm)) {
+            *txfifo = *src++;
+            --tx_remain;
+        }
+    }
+}
