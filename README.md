@@ -48,7 +48,9 @@ The firmware can be updated by holding down the BOOTSEL button, connecting the U
 
 ## DDMI
 
-See this [SmolDVI fork](https://github.com/machdyne/SmolDVI) for an example of outputting video on the DDMI port.
+See this [my_hdmi_device fork](https://github.com/machdyne/my_hdmi_device) for an example of outputting video on the DDMI port.
+
+See this [SmolDVI fork](https://github.com/machdyne/SmolDVI) for another example of outputting video on the DDMI port.
 
 ## Pinouts
 
