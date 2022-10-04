@@ -38,6 +38,8 @@ The RP clock (CLK\_RP) is 126MHz by default. Keks also has a 100 MHz oscillator 
 
 *The following description is still under development and may change.*
 
+*If an inserted FAT-formatted MicroSD card contains a bitstream file in the root directory named GATEWARE.BIN it will be used to configure the FPGA after power-on.*
+
 *After FPGA configuration is complete the RP2040 firmware configures the RP2040 to act as an SPI slave on the CSPI bus, allowing the FPGA to access the RP2040 SRAM, flash, USB HID controller registers as well as issue commands.*
 
 *The RP2040 firmware also acts as an SPI master and sends updates to the FPGA when the status of the gamepads/joysticks change.*

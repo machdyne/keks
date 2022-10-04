@@ -9,6 +9,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <strings.h>
 #include <string.h>
 
@@ -699,6 +700,48 @@ void init_keks(void) {
 
 	set_rgb_led(0, 0, 1);
 
+	// attempt to load gateware from SD card ...
+
+	printf("mounting sd card ... ");
+	fflush(stdout);
+
+	if (fs_mount() == 0)
+		printf("done.\n");
+	else
+		printf("failed.\n");
+
+	int gw_size = fs_size("/GATEWARE.BIN");
+	if (gw_size) {
+		char *gw = fs_mallocfile("/GATEWARE.BIN");
+		if (gw != NULL) {
+			init_ldprog();
+			gpio_set_dir(ICE40_CRESET, 1);
+			gpio_set_dir(MUSLI_SPI_CSN_PIN, 1);
+
+			gpio_put(MUSLI_SPI_CSN_PIN, 0);
+			gpio_put(ICE40_CRESET, 0);
+			sleep_ms(10);
+
+			gpio_put(ICE40_CRESET, 1);
+			sleep_ms(10);
+
+			gpio_put(MUSLI_SPI_CSN_PIN, 1);
+			spi_write_blocking(spi1, gw, 1);
+			gpio_put(MUSLI_SPI_CSN_PIN, 0);
+			spi_write_blocking(spi1, gw, gw_size);
+			gpio_put(MUSLI_SPI_CSN_PIN, 1);
+			spi_write_blocking(spi1, gw, 14);
+
+			free(gw);
+		}
+	}
+
+//	printf("fs free: %i\n", fs_free());
+//	printf("fs total: %i\n", fs_total());
+
+//	printf("listing sd card ...\n");
+//	fs_list_dir("/");
+
 }
 
 void set_rgb_led(int r, int g, int b) {
@@ -781,19 +824,6 @@ void init_keks_postconf(void) {
 	printf("clk_adc  = %dkHz\n", f_clk_adc);
 	printf("clk_rtc  = %dkHz\n", f_clk_rtc);
 
-	printf("mounting sd card ... ");
-	fflush(stdout);
-
-	if (fs_mount() == 0)
-		printf("done.\n");
-	else
-		printf("failed.\n");
-
-	printf("fs free: %i\n", fs_free());
-	printf("fs total: %i\n", fs_total());
-
-	printf("listing sd card ...\n");
-	fs_list_dir("/");
 
 	// enable interrupts
 //	gpio_set_irq_enabled_with_callback(KEKS_BTN, GPIO_IRQ_EDGE_FALL, true, &gpio_int);
@@ -898,7 +928,7 @@ int main(void) {
 	// Get ready to rx from host
 	usb_start_transfer(usb_get_endpoint_configuration(EP1_OUT_ADDR), NULL, 64);
 
-	bool kfc_prev;
+	bool kfc_prev = 0;
 	rpmem_ctr = 0;
 
 	// Everything is interrupt driven so just loop here

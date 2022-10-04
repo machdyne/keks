@@ -64,7 +64,11 @@ void *fs_mallocfile(char *path) {
 	buf = malloc(sz);
 	
 	res = f_read(&f, buf, sz, &br);
-	if (res != FR_OK) return NULL;
+	if (res != FR_OK) {
+		free(buf);
+		f_close(&f);
+		return NULL;
+	}
 
 	f_close(&f);
 
