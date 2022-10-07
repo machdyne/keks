@@ -46,7 +46,22 @@ The RP clock (CLK\_RP) is 126MHz by default. Keks also has a 100 MHz oscillator 
 
 In addition to the 4 CSPI signals and CLK\_RP there are 6 other signals connected to both the RP2040 and the FPGA: RP\_TX, RP\_RX, and RP\_INT, CDONE, CRESET and BTN.
 
-The firmware can be updated by holding down the BOOTSEL button, connecting the USB-C port to your computer, and then dragging and dropping a new UF2 file to the device filesystem.
+### Updating the Firmware
+
+To build the latest firmware you will need to install the [Raspberry Pi Pico SDK](https://github.com/raspberrypi/pico-sdk).
+
+Set the `PICO_SDK_PATH` environment variable to your SDK path.
+
+```
+$ git clone https://github.com/machdyne/keks
+$ cd keks/firmware/keks
+$ mkdir build
+$ cd build
+$ cmake ..
+$ make
+```
+
+The firmware can then be updated by holding down the (small) BOOTSEL button, connecting the USB-C port to your computer, and then dragging and dropping a new UF2 file to the device filesystem.
 
 ## DDMI
 
