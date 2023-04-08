@@ -85,7 +85,7 @@ void ep2_in_handler(uint8_t *buf, uint16_t len);
 // Global device address
 static bool should_set_address = false;
 static uint8_t dev_addr = 0;
-static volatile bool configured = false;
+static volatile bool usb_configured = false;
 
 // Global data buffer for EP0
 static uint8_t ep0_buf[64];
@@ -363,7 +363,7 @@ void usb_bus_reset(void) {
     dev_addr = 0;
     should_set_address = false;
     usb_hw->dev_addr_ctrl = 0;
-    configured = false;
+    usb_configured = false;
 }
 
 /**
@@ -420,7 +420,7 @@ void usb_set_device_configuration(volatile struct usb_setup_packet *pkt) {
     // Only one configuration so just acknowledge the request
     printf("Device Enumerated\r\n");
     usb_acknowledge_out_request();
-    configured = true;
+    usb_configured = true;
 }
 
 /**
@@ -799,7 +799,7 @@ void init_keks_postconf(void) {
 	gpio_init(KEKS_HOLD);
 	gpio_disable_pulls(KEKS_HOLD);
 	gpio_set_dir(KEKS_HOLD, 1);
-	gpio_set_function(MUSLI_SPI_TX_PIN, GPIO_FUNC_PIO0);
+	gpio_put(KEKS_HOLD, 1);
 
 	printf("fpga configured, please wait ...\n");
 	sleep_ms(500);
@@ -897,8 +897,8 @@ int rptcmp(char *a, char *b, int len) {
 
 int main(void) {
 
-	// set the sys clock to 126mhz
-	set_sys_clock_khz(126000, true);
+	// set the sys clock to 120mhz
+	set_sys_clock_khz(120000, true);
 
 	// use the button signal for debug uart tx
 	gpio_set_function(KEKS_BTN, GPIO_FUNC_UART);
@@ -908,7 +908,7 @@ int main(void) {
 	printf("Keks initializing ...\n");
 
 	printf("enable clock output ...\n");
-	clock_gpio_init(KEKS_CLKOUT, CLOCKS_CLK_GPOUT0_CTRL_AUXSRC_VALUE_CLK_SYS, 1);
+	clock_gpio_init(KEKS_CLKOUT, CLOCKS_CLK_GPOUT0_CTRL_AUXSRC_VALUE_CLK_USB, 1);
 
 	printf("usb_device_init ...\n");
 	usb_device_init();
@@ -921,7 +921,7 @@ int main(void) {
 //	ice40_reset();
 
 	// Wait until configured
-	while (!configured) {
+	while (!usb_configured) {
 		tight_loop_contents();
 	}
 
@@ -970,11 +970,14 @@ int main(void) {
 						rpt[3] = rpt[6];
 						rpt[4] = dev_idx;
 
+						//printf("X %02x %02x %02x %02x %02x\n",
+						//	rpt[0], rpt[1], rpt[2], rpt[3], rpt[4]);
+
 						// send the report if it's changed
 						if (dev_idx == 0 && rptcmp(rpt, rpt_l, 5)) {
 
-					//		printf("%02x %02x %02x %02x %02x\n",
-					//			rpt[0], rpt[1], rpt[2], rpt[3], rpt[4]);
+						//	printf("L %02x %02x %02x %02x %02x\n",
+						//		rpt[0], rpt[1], rpt[2], rpt[3], rpt[4]);
 
 							pio_spi_master_write8_blocking(SPI_MASTER_TX_PIO,
 								SPI_MASTER_TX_SM, rpt, 5);
@@ -983,22 +986,35 @@ int main(void) {
 
 						if (dev_idx == 1 && rptcmp(rpt, rpt_r, 5)) {
 
-					//		printf("%02x %02x %02x %02x %02x\n",
-					//			rpt[0], rpt[1], rpt[2], rpt[3], rpt[4]);
+						//	printf("R %02x %02x %02x %02x %02x\n",
+						//		rpt[0], rpt[1], rpt[2], rpt[3], rpt[4]);
 
 							pio_spi_master_write8_blocking(SPI_MASTER_TX_PIO,
 								SPI_MASTER_TX_SM, rpt, 5);
 
 						}
 
-						if (dev_idx == 0) memcpy(rpt_l, rpt, 5);
-						if (dev_idx == 1) memcpy(rpt_r, rpt, 5);
+						if (dev_idx == 0) {
+							rpt_l[0] = rpt[0];
+							rpt_l[1] = rpt[1];
+							rpt_l[2] = rpt[2];
+							rpt_l[3] = rpt[3];
+							rpt_l[4] = rpt[4];
+						}
+						if (dev_idx == 1) {
+							rpt_r[0] = rpt[0];
+							rpt_r[1] = rpt[1];
+							rpt_r[2] = rpt[2];
+							rpt_r[3] = rpt[3];
+							rpt_r[4] = rpt[4];
+						}
 
 					}
 				}
 			}
 		}
 
+/*
 		if (keks_fpga_configured) {
 
 			if (!pio_sm_is_rx_fifo_empty(SPI_SLAVE_RX_PIO, SPI_SLAVE_RX_SM)) {
@@ -1056,6 +1072,7 @@ int main(void) {
 			}
 
 		}
+*/
 
 	}
 
@@ -1076,6 +1093,7 @@ void gpio_int(uint gpio, uint32_t events) {
 //			printf("button pressed!\n");
 //		}
 
+/*
 		if (gpio == MUSLI_SPI_CSN_PIN) {
 //			printf("gpio_fall: cspi_ss\n");
 			rpmem_ctr = 0;
@@ -1083,6 +1101,7 @@ void gpio_int(uint gpio, uint32_t events) {
  			pio_sm_restart(SPI_SLAVE_RX_PIO, SPI_SLAVE_RX_SM);
  			pio_sm_restart(SPI_SLAVE_TX_PIO, SPI_SLAVE_TX_SM);
 		}
+*/
 
 	}
 }
