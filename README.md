@@ -34,7 +34,7 @@ It should also be possible to transfer gateware and games to the MicroSD card ov
 
 Keks ships with RP2040 [firmware](firmware) based on the [Müsli](https://github.com/machdyne/musli) firmware which allows it to communicate with [ldprog](https://github.com/machdyne/ldprog).
 
-The firmware is responsible for initializing the system, [configuring and outputting the RP clock](https://raspberrypi.github.io/pico-sdk-doxygen/group__hardware__clocks.html#details), configuring the FPGA and detecting USB HID events.
+The firmware is responsible for initializing the system, [configuring and outputting the RP clock](https://www.raspberrypi.com/documentation/pico-sdk/hardware.html#hardware_clocks), configuring the FPGA and detecting USB HID events.
 
 The RP clock (CLK\_RP) is 48MHz by default. Keks also has a 100 MHz oscillator on board (CLK\_100).
 
