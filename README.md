@@ -4,7 +4,7 @@ Keks is a 32-bit FPGA-based video game console and computer designed as a fun ed
 
 ![Keks Game Console](https://github.com/machdyne/keks/blob/0ec64c9bf5efc4cf7926da4405d466fae49035fd/keks.png)
 
-This repo contains schematics, pinouts, firmware, gateware, documentation and a 3D printable case.
+This repo contains schematics, PCB layouts, pinouts, firmware, gateware, documentation and a 3D printable case.
 
 Find more information on the [Keks product page](https://machdyne.com/product/keks-game-console/).
 
@@ -72,3 +72,14 @@ See this [SmolDVI fork](https://github.com/machdyne/SmolDVI) for another example
 ## Pinouts
 
  * [DDMI](https://github.com/machdyne/ddmi)
+
+## License
+
+The contents of this repo are released under the [Lone Dynamics Open License](LICENSE.md) with the following exceptions:
+
+- The KiCad design files contain parts of the [kicad-pmod](https://github.com/mithro/kicad-pmod) library which is released under the [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0.html).
+
+- The KiCad design files may contain symbols and footprints released under other licenses; please contact us if we've failed to give proper attribution.
+
+Note: You can use these designs for commercial purposes but we ask that instead of producing exact clones, that you either replace our trademarks and logos with your own or add your own next to ours.
+
