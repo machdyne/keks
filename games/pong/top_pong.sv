@@ -11,7 +11,10 @@ module top_pong (
     input  wire logic RP_INT,
     input  wire logic RP_TX,
     output wire logic DDMI_CK_P, DDMI_D2_P, DDMI_D1_P, DDMI_D0_P,
-    output wire logic DDMI_CK_N, DDMI_D2_N, DDMI_D1_N, DDMI_D0_N
+    output wire logic DDMI_CK_N, DDMI_D2_N, DDMI_D1_N, DDMI_D0_N,
+    output wire logic PMOD_A1, PMOD_A2, PMOD_A3, PMOD_A4, PMOD_A7, PMOD_A8, PMOD_A9, PMOD_A10,
+    output wire logic PMOD_B1, PMOD_B2, PMOD_B3, PMOD_B4, PMOD_B7, PMOD_B8, PMOD_B9, PMOD_B10,
+	input wire logic BTN
     );
 
     // gameplay parameters
@@ -20,30 +23,36 @@ module top_pong (
     localparam BALL_SIZE  =  8;  // ball size in pixels
     localparam BALL_ISPX  =  5;  // initial horizontal ball speed
     localparam BALL_ISPY  =  3;  // initial vertical ball speed
-    localparam PAD_HEIGHT = 48;  // paddle height in pixels
+    localparam PAD_HEIGHT = 128;  // paddle height in pixels
     localparam PAD_WIDTH  = 10;  // paddle width in pixels
     localparam PAD_OFFS   = 32;  // paddle distance from edge of screen in pixels
-    localparam PAD_SPY    =  3;  // vertical paddle speed
+    localparam PAD_SPY    =  10;  // vertical paddle speed
 
     // keks interface
     logic clk_100mhz = CLK_100;
-    logic [31:0] gamepad;
+    logic [119:0] gamepad;
 
     rpint #() rpint_i (
         .clk(clk_pix),
         .resetn(resetn),
-        .rdata(gamepad),
-        .rreg(0),
+        .ldata(gamepad),
         .sclk(RP_INT),
         .mosi(RP_TX),
     );
 
-    reg [7:0] dir = gamepad[23:16];
-    reg [3:0] btns = gamepad[15:12];
+    reg [7:0] dir = gamepad[71:64];
+    reg [7:0] btns = gamepad[63:56];
+
+	 //always_comb { PMOD_B1, PMOD_B2, PMOD_B3, PMOD_B4, PMOD_B7, PMOD_B8, PMOD_B9, PMOD_B10 } = dir;
+	 always_comb { PMOD_A1, PMOD_A2, PMOD_A3, PMOD_A4, PMOD_A7, PMOD_A8, PMOD_A9, PMOD_A10 } = btns;
+
+	logic PMOD_B2 = BTN;
 
     logic btn_fire = (btns != 4'b0000);
-    logic btn_up   = (dir == 8'h00);
-    logic btn_dn   = (dir == 8'hff);
+//    logic btn_up   = (dir == 8'h01);
+//    logic btn_dn   = (dir == 8'h05);
+    logic sig_up   = (dir == 8'h01);
+    logic sig_dn   = (dir == 8'h05);
 
     reg [11:0] resetn_counter = 0;
     wire resetn = &resetn_counter;
@@ -155,8 +164,8 @@ module top_pong (
     logic sig_fire, sig_up, sig_dn;
     /* verilator lint_off PINCONNECTEMPTY */
     debounce deb_fire (.clk(clk_pix), .in(btn_fire), .out(), .ondn(), .onup(sig_fire));
-    debounce deb_up (.clk(clk_pix), .in(btn_up), .out(sig_up), .ondn(), .onup());
-    debounce deb_dn (.clk(clk_pix), .in(btn_dn), .out(sig_dn), .ondn(), .onup());
+//    debounce deb_up (.clk(clk_pix), .in(btn_up), .out(sig_up), .ondn(), .onup());
+//    debounce deb_dn (.clk(clk_pix), .in(btn_dn), .out(sig_dn), .ondn(), .onup());
     /* verilator lint_on PINCONNECTEMPTY */
 
     // game state

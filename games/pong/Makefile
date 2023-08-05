@@ -13,6 +13,9 @@ pong:
 prog:
 	ldprog -ks output/pong.bin
 
+flash:
+	ldprog -kf output/pong.bin
+
 clean:
 	rm -f output/*
 

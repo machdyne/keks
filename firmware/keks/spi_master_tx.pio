@@ -19,7 +19,8 @@ static inline void spi_master_tx_program_init(PIO pio, uint sm, uint offset, uin
     sm_config_set_out_pins(&c, pin_tx, 1);
     sm_config_set_sideset_pins(&c, pin_clk);
 
-    sm_config_set_clkdiv(&c, 1000*1000);
+;   sm_config_set_clkdiv(&c, 1000*1000);
+    sm_config_set_clkdiv(&c, 1000);
 
     pio_gpio_init(pio, pin_tx);
     pio_gpio_init(pio, pin_clk);

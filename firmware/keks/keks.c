@@ -886,8 +886,8 @@ char rpmem_in[8];
 char rpmem_out[8];
 int rpmem_ctr;
 
-uint8_t rpt_l[8];
-uint8_t rpt_r[8];
+uint8_t rpt_l[64];
+uint8_t rpt_r[64];
 
 int rptcmp(char *a, char *b, int len) {
 	int d = 0;
@@ -920,14 +920,7 @@ int main(void) {
 	init_keks();
 //	ice40_reset();
 
-	// Wait until configured
-	while (!usb_configured) {
-		tight_loop_contents();
-	}
-
-	// Get ready to rx from host
-	usb_start_transfer(usb_get_endpoint_configuration(EP1_OUT_ADDR), NULL, 64);
-
+	int usb_started = 0;
 	bool kfc_prev = 0;
 	rpmem_ctr = 0;
 
@@ -935,6 +928,12 @@ int main(void) {
 	while (1) {
 
 		tight_loop_contents();
+
+      if (usb_configured && !usb_started) {
+         usb_start_transfer(usb_get_endpoint_configuration(EP1_OUT_ADDR),
+            NULL, 64);
+         usb_started = 1;
+      }
 
 		int cdone = gpio_get(ICE40_CDONE);
 		if (cdone && cdone != kfc_prev) {
@@ -966,47 +965,42 @@ int main(void) {
 
 					if (len > 0) {
 
-						rpt[2] = rpt[5];
-						rpt[3] = rpt[6];
-						rpt[4] = dev_idx;
+						rpt[15] = dev_idx;
 
-						//printf("X %02x %02x %02x %02x %02x\n",
-						//	rpt[0], rpt[1], rpt[2], rpt[3], rpt[4]);
+				//		for (int xx = 0; xx < 16; xx++) {
+				//			printf("%02x ", rpt[xx]);
+				//		}
+				//		printf("\n");
+
+				//		printf("X %02x %02x %02x %02x %02x\n",
+				//			rpt[0], rpt[1], rpt[2], rpt[3], rpt[4]);
 
 						// send the report if it's changed
-						if (dev_idx == 0 && rptcmp(rpt, rpt_l, 5)) {
+						if (dev_idx == 0 && rptcmp(rpt, rpt_l, 16)) {
 
 						//	printf("L %02x %02x %02x %02x %02x\n",
 						//		rpt[0], rpt[1], rpt[2], rpt[3], rpt[4]);
 
 							pio_spi_master_write8_blocking(SPI_MASTER_TX_PIO,
-								SPI_MASTER_TX_SM, rpt, 5);
+								SPI_MASTER_TX_SM, rpt, 16);
 
 						}
 
-						if (dev_idx == 1 && rptcmp(rpt, rpt_r, 5)) {
+						if (dev_idx == 1 && rptcmp(rpt, rpt_r, 16)) {
 
 						//	printf("R %02x %02x %02x %02x %02x\n",
 						//		rpt[0], rpt[1], rpt[2], rpt[3], rpt[4]);
 
 							pio_spi_master_write8_blocking(SPI_MASTER_TX_PIO,
-								SPI_MASTER_TX_SM, rpt, 5);
+								SPI_MASTER_TX_SM, rpt, 16);
 
 						}
 
 						if (dev_idx == 0) {
-							rpt_l[0] = rpt[0];
-							rpt_l[1] = rpt[1];
-							rpt_l[2] = rpt[2];
-							rpt_l[3] = rpt[3];
-							rpt_l[4] = rpt[4];
+							memcpy(rpt_l, rpt, 64);
 						}
 						if (dev_idx == 1) {
-							rpt_r[0] = rpt[0];
-							rpt_r[1] = rpt[1];
-							rpt_r[2] = rpt[2];
-							rpt_r[3] = rpt[3];
-							rpt_r[4] = rpt[4];
+							memcpy(rpt_r, rpt, 64);
 						}
 
 					}
